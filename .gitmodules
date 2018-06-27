@@ -1,3 +1,0 @@
-[submodule "migen"]
-	path = migen
-	url = git@github.com:m-labs/migen.git
