@@ -1,6 +1,8 @@
 import ast
 import inspect
 
+import astor
+
 next_id = 0
 def generate_id():
   global next_id
@@ -557,18 +559,19 @@ class MergePass:
       self.name_state(state)
     return states
 
-# TODO: add flag to methods to support "import migen" or "from migen import *";
-# these result in different names for the function calls
 class AstGenerator:
   def __init__(self, wildcard_import=True):
     self.wildcard_import = wildcard_import
 
   def generate_if_stmt(self, e, wrap_expr):
+    # TODO: optimize if e.expr is True or False; inject in the appropriate
+    # code branch instead of an if statement
+    # NOTE: will need to change return type and adjust generate_expr appropriately
     test = e.expr
     then_stmts = [self.generate_expr(s, False) for s in e.then]
     els_stmts = None
 
-    if e.els is not None:
+    if e.els is not None and len(e.els) > 0:
       els_stmts = [self.generate_expr(s, False) for s in e.els]
 
     if_func = None
@@ -588,7 +591,7 @@ class AstGenerator:
           keywords=[],
           lineno=e.lineno,
           col_offset=e.col_offset)
-    if e.els is None:
+    if e.els is None or len(e.els) == 0:
       if wrap_expr:
         return ast.Expr(value=if_stmt, lineno=e.lineno, col_offset=e.col_offset)
       else:
@@ -680,7 +683,7 @@ def fsmgen(wildcard_import=True):
     for state in states:
       ast_stmts.append(AstGenerator(wildcard_import).generate_ast(state))
 
-    print([state.dump() for state in states])
+    # print([state.dump() for state in states])
 
     fsm_name = None
     if wildcard_import:
@@ -693,13 +696,20 @@ def fsmgen(wildcard_import=True):
               lineno=firstline,
               col_offset=0)
 
+    # TODO: set the reset state to the first state in states
     prologue = [
         ast.Assign(
           targets=[ast.Name(id="fsm", ctx=ast.Store(), lineno=firstline, col_offset=0)],
           value=ast.Call(
             func=fsm_name,
             args=[],
-            keywords=[],
+            keywords=[
+              ast.keyword(
+                arg="reset_state",
+                value=ast.Str(states[0].name, lineno=firstline, col_offset=0),
+                lineno=firstline,
+                col_offset=0)
+              ],
             lineno=firstline,
             col_offset=0),
           lineno=firstline,
@@ -723,7 +733,8 @@ def fsmgen(wildcard_import=True):
         lineno=firstline,
         col_offset=0)
       ])
-    print(ast.dump(new_func_decl))
+    # print(ast.dump(new_func_decl))
+    f.fsmgen_source = astor.to_source(new_func_decl)
     # ast.increment_lineno(new_func_decl)
 
     # generate new function
