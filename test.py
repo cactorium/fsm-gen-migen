@@ -22,7 +22,6 @@ class Foo(Module):
       NextValue(self.s, 1)
       NextValue(self.counter, self.counter + 1)
       yield "B"
-      return f
 
   @fsmgen()
   def test_fsm2(self, x):
@@ -36,4 +35,5 @@ class Foo(Module):
 f = Foo()
 # print(f.test_fsm(5, 7))
 # print(f.test_fsm2(5))
-print(verilog.convert(f))
+print(f.test_fsm.fsmgen_source)
+# print(verilog.convert(f))

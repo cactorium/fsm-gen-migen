@@ -1,7 +1,10 @@
 import ast
 import inspect
 
-import astor
+try:
+  import astor
+except ImportError:
+  astor = None
 
 next_id = 0
 def generate_id():
@@ -310,7 +313,6 @@ class SimplifyPass:
         continue
 
       prev_node, cur_node = cur_node, cur_node.next_node
-      # FIXME: infinite loop somewhere
     return goto_node.next_node
 
 class State:
@@ -563,16 +565,32 @@ class AstGenerator:
   def __init__(self, wildcard_import=True):
     self.wildcard_import = wildcard_import
 
+  def flatten_list(self, ll):
+    ret = []
+    for l in ll:
+      if isinstance(l, list):
+        ret.extend(self.flatten_list(l))
+      else:
+        ret.append(l)
+    return ret
+
   def generate_if_stmt(self, e, wrap_expr):
     # TODO: optimize if e.expr is True or False; inject in the appropriate
     # code branch instead of an if statement
     # NOTE: will need to change return type and adjust generate_expr appropriately
     test = e.expr
-    then_stmts = [self.generate_expr(s, False) for s in e.then]
-    els_stmts = None
+
+    then_stmts = self.flatten_list([self.generate_expr(s, False) for s in e.then])
+    els_stmts = []
 
     if e.els is not None and len(e.els) > 0:
-      els_stmts = [self.generate_expr(s, False) for s in e.els]
+      els_stmts = self.flatten_list([self.generate_expr(s, False) for s in e.els])
+
+    if isinstance(e.expr, ast.NameConstant):
+      if e.expr.value is True:
+        return then_stmts
+      elif e.expr.value is False:
+        return els_stmts
 
     if_func = None
     if self.wildcard_import:
@@ -649,7 +667,7 @@ class AstGenerator:
 
   def generate_ast(self, state):
     state_name = ast.Str(s=state.name, ctx=ast.Load(), lineno=state.lineno, col_offset=state.col_offset)
-    stmts = [self.generate_expr(s, False) for s in state.stmts]
+    stmts = self.flatten_list([self.generate_expr(s, False) for s in state.stmts])
     return ast.Expr(
         value=ast.Call(
           func=ast.Attribute(
@@ -696,7 +714,6 @@ def fsmgen(wildcard_import=True):
               lineno=firstline,
               col_offset=0)
 
-    # TODO: set the reset state to the first state in states
     prologue = [
         ast.Assign(
           targets=[ast.Name(id="fsm", ctx=ast.Store(), lineno=firstline, col_offset=0)],
@@ -734,14 +751,8 @@ def fsmgen(wildcard_import=True):
         col_offset=0)
       ])
     # print(ast.dump(new_func_decl))
-    f.fsmgen_source = astor.to_source(new_func_decl)
-    # ast.increment_lineno(new_func_decl)
-
-    # generate new function
-    # code = """def TEST(x, whateverelse):
-      # return "{}" """.format(name)
-    # p = ast.parse(code)
-    # exec(compile(p, "<ast>", mode="exec"))
+    if astor is not None:
+      f.fsmgen_source = astor.to_source(new_func_decl)
     p = compile(new_func_decl, "<ast>", mode="exec")
     exec(p)
     f.__code__ = locals()[func_decl.name].__code__
