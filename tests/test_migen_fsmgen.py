@@ -1,7 +1,7 @@
 from migen import *
 from migen.fhdl import verilog
 
-from parser import fsmgen
+from .context import migen_fsmgen
 
 class Foo(Module):
   def __init__(self):
