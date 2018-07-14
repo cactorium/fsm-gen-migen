@@ -1,9 +1,7 @@
 from migen import *
 from migen.fhdl import verilog
 
-# TODO get this working right
-
-from .context import migen_fsmgen
+from migen_fsmgen import fsmgen
 
 class Foo(Module):
   def __init__(self):
