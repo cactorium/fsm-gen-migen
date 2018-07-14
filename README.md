@@ -57,3 +57,8 @@ def make_fsm2(x, y):
 This uses `ast` and `inspect` to extract the AST from the function, and then it processes that to model the same set of steps as a state machine.
 Then it generates code to produce the state machine in migen and wraps that in a function.
 If `astor` is installed, `fsmgen` also saves a copy of the Python code as an attribute named fsmgen_source for inspection.
+
+## TODOs
+- [ ] Package into Python package
+- [ ] Fix test case 3 (while logic not working correctly)
+- [ ] Add more test cases
